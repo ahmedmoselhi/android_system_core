@@ -773,6 +773,19 @@ static void load_override_properties() {
     }
 }
 
+#ifdef TARGET_FORCE_BUILD_FINGERPRINT
+static const char *build_fingerprint_key[] = {
+    "ro.build.fingerprint",
+	"ro.system_ext.build.fingerprint",
+	"ro.vendor.build.fingerprint",
+	"ro.bootimage.build.fingerprint",
+	"ro.odm.build.fingerprint",
+	"ro.product.build.fingerprint",
+	"ro.system.build.fingerprint",
+	NULL
+};
+#endif
+
 // If the ro.product.[brand|device|manufacturer|model|name] properties have not been explicitly
 // set, derive them from ro.product.${partition}.* properties
 static void property_initialize_ro_product_props() {
@@ -842,6 +855,7 @@ static void property_initialize_ro_product_props() {
     }
 }
 
+#ifndef TARGET_FORCE_BUILD_FINGERPRINT
 // If the ro.build.fingerprint property has not been set, derive it from constituent pieces
 static void property_derive_build_fingerprint() {
     std::string build_fingerprint = GetProperty("ro.build.fingerprint", "");
@@ -875,6 +889,7 @@ static void property_derive_build_fingerprint() {
                    << ")";
     }
 }
+#endif
 
 void PropertyLoadBootDefaults() {
     // TODO(b/117892318): merge prop.default and build.prop files into one
@@ -925,7 +940,10 @@ void PropertyLoadBootDefaults() {
     weaken_prop_override_security = false;
 
     property_initialize_ro_product_props();
+
+#ifndef TARGET_FORCE_BUILD_FINGERPRINT
     property_derive_build_fingerprint();
+#endif
 
     if (android::base::GetBoolProperty("ro.persistent_properties.ready", false)) {
         update_sys_usb_config();
