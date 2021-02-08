@@ -786,6 +786,68 @@ static const char *build_fingerprint_key[] = {
 };
 #endif
 
+static const char *snet_prop_key[] = {
+	"ro.boot.vbmeta.device_state",
+	"ro.boot.verifiedbootstate",
+	"ro.boot.flash.locked",
+	"ro.boot.selinux",
+	"ro.boot.veritymode",
+	"ro.boot.warranty_bit",
+	"ro.warranty_bit",
+	"ro.debuggable",
+	"ro.secure",
+	"ro.build.type",
+	"ro.build.keys",
+	"ro.build.tags",
+	"ro.system.build.tags",
+	"ro.vendor.boot.warranty_bit",
+	"ro.vendor.warranty_bit",
+	"vendor.boot.vbmeta.device_state",
+	"vendor.boot.verifiedbootstate",
+	NULL
+};
+
+static const char *snet_prop_value[] = {
+	"locked", // ro.boot.vbmeta.device_state
+	"green", // ro.boot.verifiedbootstate
+	"1", // ro.boot.flash.locked
+	"enforcing", // ro.boot.selinux
+	"enforcing", // ro.boot.veritymode
+	"0", // ro.boot.warranty_bit
+	"0", // ro.warranty_bit
+	"0", // ro.debuggable
+	"1", // ro.secure
+	"user", // ro.build.type
+	"release-keys", // ro.build.keys
+	"release-keys", // ro.build.tags
+	"release-keys", // ro.system.build.tags
+	"0", // ro.vendor.boot.warranty_bit
+	"0", // ro.vendor.warranty_bit
+	"locked", // vendor.boot.vbmeta.device_state
+	"green", // vendor.boot.verifiedbootstate
+	NULL
+};
+
+static void workaround_snet_properties() {
+    std::string build_type = android::base::GetProperty("ro.build.type", "");
+
+    // Weaken property override security to set safetynet props
+    weaken_prop_override_security = true;
+
+	std::string error;
+
+	// Hide all sensitive props if not eng build
+    if (build_type != "eng") {
+	    LOG(INFO) << "snet: Hiding sensitive props";
+	    for (int i = 0; snet_prop_key[i]; ++i) {
+            PropertySet(snet_prop_key[i], snet_prop_value[i], &error);
+	    }
+    }
+
+    // Restore the normal property override security after safetynet props have been set
+    weaken_prop_override_security = false;
+}
+
 // If the ro.product.[brand|device|manufacturer|model|name] properties have not been explicitly
 // set, derive them from ro.product.${partition}.* properties
 static void property_initialize_ro_product_props() {
@@ -930,9 +992,6 @@ void PropertyLoadBootDefaults() {
         }
     }
 
-    // Weaken property override security during execution of the vendor init extension
-    weaken_prop_override_security = true;
-
     // Update with vendor-specific property runtime overrides
     vendor_load_properties();
 
@@ -948,6 +1007,9 @@ void PropertyLoadBootDefaults() {
     if (android::base::GetBoolProperty("ro.persistent_properties.ready", false)) {
         update_sys_usb_config();
     }
+
+    // Workaround SafetyNet
+    workaround_snet_properties();
 }
 
 bool LoadPropertyInfoFromFile(const std::string& filename,
